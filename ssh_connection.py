@@ -5,7 +5,7 @@ from io import StringIO
 import os
 
 
-def start_deployment(ip, files, commands, key_material):
+def start_deployment(ip, commands, file, key_material, fetch):
     """
     This function starts the deployment process for the instance with the provided ip address.
     The deployment script is running on the instance. The provided deployment commands are also
@@ -15,16 +15,12 @@ def start_deployment(ip, files, commands, key_material):
     ftp_client = None
     try:
         connection = instance_connection(ip, key_material)
-        transfer_file(connection, files)
+        transfer_file(connection, file)
         run_commands(connection, commands)
-        ftp_client = connection.open_sftp()
-        ftp_client.get("/home/ubuntu/time_results.txt", os.path.join(os.path.curdir, "time_results.txt"))
-        ftp_client.get("/home/ubuntu/benchmarking_time_results.txt", os.path.join(os.path.curdir, "benchmarking_time_results.txt"))
-        ftp_client.get("/home/ubuntu/friends_suggestion_solution.txt", os.path.join(os.path.curdir, "friends_suggestion_solution.txt"))
-        ftp_client.get("/home/ubuntu/Average_benchmark_hadoop_spark.png",
-                       os.path.join(os.path.curdir, "Average_benchmark_hadoop_spark.png"))
-        ftp_client.get("/home/ubuntu/Average_benchmark_hadoop_linux.png",
-                       os.path.join(os.path.curdir, "Average_benchmark_hadoop_linux.png"))
+        
+        if fetch is True:
+            ftp_client = connection.open_sftp()
+            ftp_client.get("/home/ubuntu/benchmark_cluster.txt", os.path.join(os.path.curdir, "benchmark_cluster.txt"))
     except Exception as e:
         print(e)
     finally:
