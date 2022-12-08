@@ -29,17 +29,21 @@ nodeid=50
 import os
 
 
-def write_file_content(private_dns_1, private_dns_2, private_dns_3, private_dns_4):
-    ret = "[ndb_mgmd] " + "\n" + "hostname={}\n".format(private_dns_1) +\
-          "datadir=/opt/mysqlcluster/deploy/ndb_data\n" + "nodeid=1\n" +\
-          "[ndbd default]" + "\n" + "noofreplicas=3\n" + \
-          "[ndbd]\nhostname={}\n".format(private_dns_2)\
-          + "nodeid=3\ndatadir=/opt/mysqlcluster/deploy/ndb_data\n" + \
+def write_config_ini_file_content(private_dns_1, private_dns_2, private_dns_3, private_dns_4):
+    ret = "[ndb_mgmd] " + "\n" + "hostname={}\n".format(private_dns_1) + \
+          "datadir=/opt/mysqlcluster/deploy/ndb_data\n" + "nodeid=1\n" + \
+          "[ndbd default]" + "\n" + "noofreplicas=3\n" + "ServerPort=11860\n" + \
+          "datadir=/opt/mysqlcluster/deploy/ndb_data\n" + \
+          "[ndbd]\nhostname={}\n".format(private_dns_2) \
+          + "nodeid=3\n" + \
+          "# bind-address={}\n".format(private_dns_2) + \
           "[ndbd]\nhostname={}\n".format(private_dns_3) \
-          + "nodeid=4\ndatadir=/opt/mysqlcluster/deploy/ndb_data\n" + \
-            "[ndbd]\nhostname={}\n".format(private_dns_4)\
-          + "nodeid=5\ndatadir=/opt/mysqlcluster/deploy/ndb_data\n" + \
-            "[mysqld]\nnodeid=50"
+          + "nodeid=4\n" + \
+          "# bind-address={}\n".format(private_dns_3) + \
+          "[ndbd]\nhostname={}\n".format(private_dns_4) \
+          + "nodeid=5\n" + \
+          "# bind-address={}\n".format(private_dns_4) + \
+          "[mysqld]\nnodeid=50"
 
     print(ret)
     path_folder = os.path.abspath('cluster')
@@ -48,9 +52,42 @@ def write_file_content(private_dns_1, private_dns_2, private_dns_3, private_dns_
     f.write(ret)
     f.close()
 
+
 def append_to_replica_script(string):
-  with open("cluster/slave_mysql_script.sh","a") as file:
-    file.write(string)
+    with open("cluster/slave_mysql_script.sh", "a") as file:
+        file.write(string)
+
+
+def write_config_proxy_file_content(private_dns_master, private_ip_array, private_key):
+    ret = "{\n" + \
+        "\"master_dns\":\"{}\",\n".format(private_dns_master) + \
+        "\"master_ip\":\"{}\",\n".format(private_ip_array[0]) + \
+        "\"slave1_ip\":\"{}\",\n".format(private_ip_array[1]) + \
+        "\"slave2_ip\":\"{}\",\n".format(private_ip_array[2]) + \
+        "\"slave3_ip\":\"{}\",\n".format(private_ip_array[3]) + \
+        "\"private_key\":\"{}\"\n".format(private_key) + \
+        "}"
+    path_folder = os.path.abspath('proxy')
+    path_file = os.path.join(path_folder, 'config.json')
+    f = open(path_file, "w")
+    f.write(ret)
+    f.close()
+
+def write_sqld_config_file(private_ips):
+    ret = "[mysqld]" +\
+        "ndbcluster \n" +\
+        "datadir=/opt/mysqlcluster/deploy/mysqld_data \n" +\
+        "basedir=/opt/mysqlcluster/home/mysqlc \n" +\
+        "port=3306 \n" +\
+        "bind-address=0.0.0.0"
+    #for ip in private_ips:
+    #    ret += "bind-address={0}\n".format(ip)
+
+    path_folder = os.path.abspath('cluster')
+    path_file = os.path.join(path_folder, 'my.cnf')
+    f = open(path_file, "w")
+    f.write(ret)
+    f.close()
 
 if __name__ == "__main__":
-    write_file_content("lb-619373195.us-east-1.elb.amazonaws.com")
+    write_config_ini_file_content("lb-619373195.us-east-1.elb.amazonaws.com")
