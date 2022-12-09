@@ -46,7 +46,7 @@ try:
         private_dns_4=private_ips[3])
 
     write_config_proxy_file_content(private_dns_master=private_dns[0],
-        private_ip_array=private_ips)
+        private_ip_array=private_ips, private_key=key_pair["KeyMaterial"])
 
     #write_sqld_config_file(private_ips)
 
@@ -81,7 +81,6 @@ try:
     #The mngmt node
 
     mngmt_node_files = [
-        os.path.join(cluster_folder, "my.cnf"),
         os.path.join(cluster_folder, "config.ini"),
         os.path.join(cluster_folder, "mngmt_node_script.sh"),
     ]
