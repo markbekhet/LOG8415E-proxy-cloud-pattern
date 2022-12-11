@@ -4,6 +4,7 @@ import sys
 import paramiko
 import pymysql
 import random
+from customized_hit import customized_hit
 
 
 """
@@ -69,7 +70,7 @@ def main():
             else:
                 ##TODO: Add the option for the cutomized hit
                 print("The algorithm chosen for this request is customized hit.")
-                tunnel = random_hit(ips, private_key)
+                tunnel = customized_hit(ips, private_key)
                 tunnel_port = tunnel.local_bind_port
                 host = '127.0.0.1'
         else:
