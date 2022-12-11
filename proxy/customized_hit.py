@@ -4,7 +4,7 @@ from random_hit import open_ssh_tunnel
 import sys
 
 def ping_server(server_ip):
-    output = subprocess.check_output(['ping', '-c', '3', server_dns])
+    output = subprocess.check_output(['ping', '-c', '3', server_ip])
     output = output.decode('utf8')
     statistic = re.search(r'(\d+\.\d+/){3}\d+\.\d+', output).group(0)
     avg_time = re.findall(r'\d+\.\d+', statistic)[1]
