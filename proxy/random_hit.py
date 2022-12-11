@@ -1,12 +1,8 @@
-import pymysql
-import sshtunnel
 from sshtunnel import SSHTunnelForwarder
-import paramiko
-from io import StringIO
+import random
 
 
-def open_ssh_tunnel(master_ip, slave_ip,ssh_key_file):
-    rsa_key = paramiko.RSAKey.from_private_key_file(ssh_key_file)
+def open_ssh_tunnel(master_ip, slave_ip,rsa_key):
     tunnel = SSHTunnelForwarder(
         (slave_ip, 22),
         ssh_username = "ubuntu",
@@ -16,15 +12,8 @@ def open_ssh_tunnel(master_ip, slave_ip,ssh_key_file):
     tunnel.start()
     return tunnel
 
-def mysql_connect(tunnel):
-    connection = pymysql.connect(
-        host = '127.0.0.1',
-        user="sbtest",
-        password="passw0rd",
-        db="sakila",
-        port=tunnel.local_bind_port
-    )
-    cursor = connection.cursor()
-    cursor.execute("select * from actor")
-    output = cursor.fetchall()
-    print(output)
+
+def random_hit(private_ips,key):
+    rand = random.randrange(1,4)
+    print("The random function chose to contact the datanode {}".format(rand))
+    return open_ssh_tunnel(private_ips[0], private_ips[rand, key])
