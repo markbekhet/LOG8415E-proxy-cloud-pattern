@@ -1,7 +1,6 @@
 import json
 from random_hit import random_hit
 import sys
-from direct_hit import direct_hit
 import paramiko
 import pymysql
 
@@ -17,13 +16,13 @@ import pymysql
     The idea is that we must be able to connect to the database through the proxy.
     Hence, the host should always be the public ip of the proxy server. 
 """
-def mysql_connect(tunnel, commands):
+def mysql_connect(host_sql,tunnel_port, commands):
     connection = pymysql.connect(
-        host = '127.0.0.1',
+        host = host_sql,
         user="sbtest",
         password="passw0rd",
         db="sakila",
-        port=tunnel.local_bind_port,
+        port=tunnel_port,
         autocommit=True
     )
     cursor = connection.cursor()
@@ -51,18 +50,25 @@ def main():
         exit(-1)
 
     algorithm = sys.argv[1]
-    tunnel = None;
+    tunnel = None
+    host = None
+    tunnel_port = None
     match algorithm:
         case "direct_hit":
-            tunnel = direct_hit(ips[0], private_key)
+            host = ips[0]
+            tunnel_port = 3306
         case "random_hit":
             tunnel = random_hit(ips, private_key)
+            tunnel_port = tunnel.local_bind_port
+            host = '127.0.0.1'
         case _:
             print("supported algorithms are direct_hit and random_hit")
             exit(-1)
     
-    mysql_connect(tunnel, ["SELECT * FROM actor"])
-    tunnel.stop()
+    mysql_connect(host, tunnel_port, ["SELECT * FROM actor"])
+    
+    if tunnel!= None:
+        tunnel.stop()
 
 
 main()
