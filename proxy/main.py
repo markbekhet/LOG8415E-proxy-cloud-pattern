@@ -46,6 +46,10 @@ def main():
     private_key_file = "key.pem"
     private_key = paramiko.RSAKey.from_private_key_file(private_key_file)
     
+    if len(sys.argv) < 2:
+        print("The algorithm name must be provided as an argument")
+        exit(-1)
+
     algorithm = sys.argv[1]
     tunnel = None;
     match algorithm:
