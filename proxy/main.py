@@ -3,6 +3,7 @@ from random_hit import random_hit
 import sys
 import paramiko
 import pymysql
+import random
 
 
 """
@@ -16,7 +17,7 @@ import pymysql
     The idea is that we must be able to connect to the database through the proxy.
     Hence, the host should always be the public ip of the proxy server. 
 """
-def mysql_connect(host_sql,tunnel_port, commands):
+def mysql_connect(host_sql,tunnel_port, command):
     connection = pymysql.connect(
         host = host_sql,
         user="sbtest",
@@ -26,10 +27,9 @@ def mysql_connect(host_sql,tunnel_port, commands):
         autocommit=True
     )
     cursor = connection.cursor()
-    for command in commands:
-        cursor.execute(command)
-        output = cursor.fetchall()
-        print(output)
+    cursor.execute(command)
+    output = cursor.fetchall()
+    print(output)
     
     connection.close()
 
@@ -46,29 +46,42 @@ def main():
     private_key = paramiko.RSAKey.from_private_key_file(private_key_file)
     
     if len(sys.argv) < 2:
-        print("The algorithm name must be provided as an argument")
+        print("Please enter an sql command")
         exit(-1)
 
-    algorithm = sys.argv[1]
-    tunnel = None
-    host = None
-    tunnel_port = None
-    match algorithm:
-        case "direct_hit":
+    commands = sys.argv[1:]
+    for command in commands:
+        tunnel = None
+        host = None
+        tunnel_port = None
+
+        find_select = command.lower().find("select")
+
+        if find_select == 0:
+            print("The command treated is a read command")
+            random_number = random.randint(0,10)
+            read_algorithm = random_number % 2
+            if read_algorithm == 0:
+                print("The algorithm chosen for this request is random hit.")
+                tunnel = random_hit(ips, private_key)
+                tunnel_port = tunnel.local_bind_port
+                host = '127.0.0.1'
+            else:
+                ##TODO: Add the option for the cutomized hit
+                print("The algorithm chosen for this request is customized hit.")
+                tunnel = random_hit(ips, private_key)
+                tunnel_port = tunnel.local_bind_port
+                host = '127.0.0.1'
+        else:
+            print("The command treated is a write command. Therefore, using the direct hit algorithm.")
             host = ips[0]
             tunnel_port = 3306
-        case "random_hit":
-            tunnel = random_hit(ips, private_key)
-            tunnel_port = tunnel.local_bind_port
-            host = '127.0.0.1'
-        case _:
-            print("supported algorithms are direct_hit and random_hit")
-            exit(-1)
-    
-    mysql_connect(host, tunnel_port, ["SELECT * FROM actor"])
-    
-    if tunnel!= None:
-        tunnel.stop()
+        
+        
+        mysql_connect(host, tunnel_port, command)
+        
+        if tunnel!= None:
+            tunnel.stop()
 
 
 main()
