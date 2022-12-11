@@ -1,11 +1,11 @@
-import json
-import pymysql
+from sshtunnel import SSHTunnelForwarder
 
-def direct_hit(master_private_dns):
-    conn = pymysql.connect(host=master_private_dns,
-                           user="sbtest", password="passw0rd",
-                           db="sakila")
-    cur = conn.cursor()
-    cur.execute("select * from actor")
-    output = cur.fetchall()
-    print(output)
+def direct_hit(master_ip, rsa_key):
+    tunnel = SSHTunnelForwarder(
+        (master_ip, 22),
+        ssh_username = "ubuntu",
+        ssh_pkey=rsa_key,
+        remote_bind_address = ('127.0.0.1',3306)
+    )
+    tunnel.start()
+    return tunnel
