@@ -5,7 +5,7 @@ from io import StringIO
 import os
 
 
-def start_deployment(ip, commands, file, key_material, fetch):
+def start_deployment(ip, commands, key_material, file=[], fetch_file=None, is_recursive=False):
     """
     This function starts the deployment process for the instance with the provided ip address.
     The deployment script is running on the instance. The provided deployment commands are also
@@ -15,12 +15,12 @@ def start_deployment(ip, commands, file, key_material, fetch):
     ftp_client = None
     try:
         connection = instance_connection(ip, key_material)
-        transfer_file(connection, file)
+        transfer_file(connection, file, is_recursive)
         run_commands(connection, commands)
         
-        if fetch is True:
+        if fetch_file is not None:
             ftp_client = connection.open_sftp()
-            ftp_client.get("/home/ubuntu/benchmark_cluster.txt", os.path.join(os.path.curdir, "benchmark_cluster.txt"))
+            ftp_client.get("/home/ubuntu/{0}".format(fetch_file), os.path.join(os.path.curdir, fetch_file))
     except Exception as e:
         print(e)
     finally:
@@ -47,14 +47,14 @@ def instance_connection(instance_ip, key_material):
     return ssh_connection
 
 
-def transfer_file(ssh_connection, files):
+def transfer_file(ssh_connection, files, recursive_value):
     """
     Initializes a SCP connection using a SSH connection and tranfert the file to the instance connected 
     to the session.
     """
     scp_connection = SCPClient(ssh_connection.get_transport())
     for file in files:
-        scp_connection.put(file, remote_path='/home/ubuntu')
+        scp_connection.put(file,remote_path='/home/ubuntu', recursive=recursive_value)
 
 
 def run_commands(ssh_connection, commands):

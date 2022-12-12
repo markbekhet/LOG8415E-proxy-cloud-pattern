@@ -4,3 +4,4 @@ python3 -m virtualenv venv
 source venv/bin/activate
 pip install -r ~/proxy/requirements.txt
 pip install sshtunnel
+deactivate

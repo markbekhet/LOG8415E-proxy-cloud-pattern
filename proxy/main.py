@@ -52,6 +52,7 @@ def main():
 
     commands = sys.argv[1:]
     for command in commands:
+        print("executing SQL command {}".format(command))
         tunnel = None
         host = None
         tunnel_port = None
@@ -60,8 +61,7 @@ def main():
 
         if find_select == 0:
             print("The command treated is a read command")
-            random_number = random.randint(0,10)
-            read_algorithm = random_number % 2
+            read_algorithm = random.randint(0,1)
             if read_algorithm == 0:
                 print("The algorithm chosen for this request is random hit.")
                 tunnel = random_hit(ips, private_key)
