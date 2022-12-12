@@ -14,6 +14,6 @@ def open_ssh_tunnel(master_ip, slave_ip,rsa_key):
 
 
 def random_hit(private_ips,key):
-    rand = random.randint(1,4)
+    rand = random.randint(1,3)
     print("The random function chose to contact the datanode {}".format(rand))
     return open_ssh_tunnel(private_ips[0], private_ips[rand], key)

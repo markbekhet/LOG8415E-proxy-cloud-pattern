@@ -14,7 +14,7 @@ def ping_server(server_ip):
 def customized_hit(private_ips, key):
     min_time = sys.float_info.max
     chosen_data_node = 0
-    for i in range(1,4):
+    for i in range(1,3):
         ping_time = ping_server(private_ips[i])
         if  ping_time < min_time:
             min_time = ping_time
