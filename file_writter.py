@@ -27,6 +27,7 @@ datadir=/opt/mysqlcluster/deploy/ndb_data
 nodeid=50
 """
 import os
+import json
 
 
 def write_config_ini_file_content(private_dns_1, private_dns_2, private_dns_3, private_dns_4):
@@ -59,17 +60,17 @@ def append_to_replica_script(string):
 
 
 def write_config_proxy_file_content(private_dns_master, private_ip_array, private_key):
-    ret = "{\n" + \
-        "\"master_dns\":\"{}\",\n".format(private_dns_master) + \
-        "\"master_ip\":\"{}\",\n".format(private_ip_array[0]) + \
-        "\"slave1_ip\":\"{}\",\n".format(private_ip_array[1]) + \
-        "\"slave2_ip\":\"{}\",\n".format(private_ip_array[2]) + \
-        "\"slave3_ip\":\"{}\"\n".format(private_ip_array[3]) + \
-        "}"
+    ret = { 
+        "master_dns": private_dns_master ,
+        "master_ip": private_ip_array[0],
+        "slave1_ip": private_ip_array[1],
+        "slave2_ip": private_ip_array[2] ,
+        "slave3_ip": private_ip_array[3]
+    }
     path_folder = os.path.abspath('proxy')
     path_file = os.path.join(path_folder, 'config.json')
     f = open(path_file, "w")
-    f.write(ret)
+    json.dump(ret, f)
     f.close()
     path_file2 = os.path.join(path_folder, 'key.pem')
     f2 = open(path_file2, "w")
