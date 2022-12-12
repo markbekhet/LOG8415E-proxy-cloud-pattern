@@ -5,18 +5,7 @@ from ssh_connection import *
 from security_group import *
 from file_writter import *
 
-def prepare_cluster_and_test_proxy():
-    session = boto3.Session(profile_name='default')
-    ec2_client = session.client('ec2')
-    ec2_resource = session.resource('ec2')
-
-    vpcs = ec2_client.describe_vpcs()
-    vpc_id = vpcs.get('Vpcs', [{}])[0].get('VpcId', '')
-
-    instance_ami = 'ami-08c40ec9ead489470'
-    key_pair = create_key_pair(ec2_client, "tp3Key")
-    security_group_id = create_security_group(ec2_client, vpc_id)['GroupId']
-
+def prepare_cluster_and_test_proxy(ec2_resource, ec2_client, instance_ami, key_pair, security_group_id):
     cluster_instances_tag = "cluster_instances"
     cluster_instances=None
     proxy_instance = None
@@ -82,9 +71,9 @@ def prepare_cluster_and_test_proxy():
             "sudo /opt/mysqlcluster/home/mysqlc/bin/mysql -e \"GRANT ALL PRIVILEGES ON sakila.* TO \'sbtest\'@\'%\'\"",
             "sudo /opt/mysqlcluster/home/mysqlc/bin/mysql -e \"FLUSH PRIVILEGES\"",
             "sudo /opt/mysqlcluster/home/mysqlc/bin/mysql -e \"GRANT ALL PRIVILEGES ON dbtest.* TO \'sbtest\'@\'%\'\"",
-            "sudo sysbench --test=oltp_read_write --tables=23 --mysql-db=sakila --mysql-host={0} --mysql-user=sbtest --mysql-password=passw0rd --table_size=1000 prepare".format(private_dns[0]),
-            "sudo sysbench --test=oltp_read_write --tables=23 --mysql-db=sakila --mysql-host={0} --mysql-user=sbtest --mysql-password=passw0rd --table_size=1000 run > benchmark_cluster.txt".format(private_dns[0]),
-            "sudo sysbench --test=oltp_read_write --tables=23 --mysql-db=sakila --mysql-host={0} --mysql-user=sbtest --mysql-password=passw0rd --table_size=1000 cleanup".format(private_dns[0])
+            "sudo sysbench --test=oltp_read_write --tables=23 --mysql-db=sakila --mysql-host={0} --mysql-user=sbtest --mysql-password=passw0rd --table_size=10000 prepare".format(private_dns[0]),
+            "sudo sysbench --test=oltp_read_write --threads=6 --max-time=300 --tables=23 --mysql-db=sakila --mysql-host={0} --mysql-user=sbtest --mysql-password=passw0rd --table_size=10000 run > benchmark_cluster.txt".format(private_dns[0]),
+            "sudo sysbench --test=oltp_read_write --tables=23 --mysql-db=sakila --mysql-host={0} --mysql-user=sbtest --mysql-password=passw0rd --table_size=10000 cleanup".format(private_dns[0])
 
         ]
 
@@ -162,8 +151,84 @@ def prepare_cluster_and_test_proxy():
 
             for instance in cluster_instances.all():
                 instance.wait_until_terminated()
+
+def test_standalone_mysql(ec2_resource, ec2_client, instance_ami, key_pair, security_group_id):
+    standalone_tag = "standalone"
+    standalone_instances = None
+    try:
+        sn_all = ec2_client.describe_subnets()
+        subnet = None
+        for sn in sn_all['Subnets']:
+            if sn['AvailabilityZone'] == 'us-east-1a' or sn['AvailabilityZone'] == 'us-east-1b':
+                subnet = sn['SubnetId']
+        create_instances(ec2_resource, instance_ami, "t2.micro",
+                                    key_pair["KeyName"], standalone_tag,
+                                     1, security_group_id, subnet)[0]
+        awake = False
+        while awake is False:
+            standalone_instances = ec2_resource.instances.filter(
+                Filters=[
+                    {'Name': 'instance-state-name', 'Values': ['running']},
+                    {'Name': 'tag:Name', 'Values': [standalone_tag]}
+                ]
+            )
+            if len(list(standalone_instances.all())) == 1:
+                awake = True
+            else:
+                time.sleep(0.5)
+
+        public_ips = [instance.public_ip_address for instance in standalone_instances.all()]
         
-        ec2_client.delete_key_pair(KeyName="tp3Key")
+        print(public_ips)
+
+        standalone_commands = [
+            "chmod 777 standalone_mysql_script.sh",
+            "./standalone_mysql_script.sh",
+        ]
+
+        time.sleep(60)
+        current_folder = os.path.curdir
+        #The mngmt node
+
+        standalone_files = [
+            os.path.join(current_folder, "standalone_mysql_script.sh")
+        ]
+
+        start_deployment(public_ips[0], standalone_commands,key_pair["KeyMaterial"], 
+                    standalone_files,fetch_file="benchmark_standalone.txt")
+
+    except Exception as e:
+        print(e)
+    finally:
+        if standalone_instances is not None:
+            for instance in standalone_instances.all():
+                instance.terminate()
+
+            for instance in standalone_instances.all():
+                instance.wait_until_terminated()
+        
+
+def main():
+    session = boto3.Session(profile_name='default')
+    ec2_client = session.client('ec2')
+    ec2_resource = session.resource('ec2')
+
+    vpcs = ec2_client.describe_vpcs()
+    vpc_id = vpcs.get('Vpcs', [{}])[0].get('VpcId', '')
+
+    instance_ami = 'ami-08c40ec9ead489470'
+    key_pair = create_key_pair(ec2_client, "tp3Key")
+    security_group_id = create_security_group(ec2_client, vpc_id)['GroupId']
+    test_standalone_mysql(ec2_resource, ec2_client, instance_ami, key_pair, security_group_id)
+    prepare_cluster_and_test_proxy(ec2_resource, ec2_client, instance_ami, key_pair, security_group_id)
+
+    
+    ec2_client.delete_key_pair(KeyName="tp3Key")
+    time.sleep(60)
+    try:
+        delete_security_group(ec2_client, security_group_id)
+    except:
+        time.sleep(30)
         delete_security_group(ec2_client, security_group_id)
 
-prepare_cluster_and_test_proxy()
+main()
