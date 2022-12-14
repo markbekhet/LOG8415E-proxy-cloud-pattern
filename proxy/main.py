@@ -46,11 +46,12 @@ def main():
     private_key_file = "key.pem"
     private_key = paramiko.RSAKey.from_private_key_file(private_key_file)
     
-    if len(sys.argv) < 2:
-        print("Please enter an sql command")
+    if len(sys.argv) < 3:
+        print("Please enter an algorithm from direct_hit, random_hit or customized_hit "+
+        "followed by an sql command")
         exit(-1)
 
-    commands = sys.argv[1:]
+    commands = sys.argv[2:]
     for command in commands:
         print("executing SQL command {}".format(command))
         tunnel = None
@@ -61,8 +62,8 @@ def main():
 
         if find_select == 0:
             print("The command treated is a read command")
-            read_algorithm = random.randint(0,1)
-            if read_algorithm == 0:
+            read_algorithm = sys.argv[1]
+            if read_algorithm == "random_hit":
                 print("The algorithm chosen for this request is random hit.")
                 tunnel = random_hit(ips, private_key)
                 tunnel_port = tunnel.local_bind_port
