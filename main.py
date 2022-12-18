@@ -5,9 +5,25 @@ from ssh_connection import *
 from security_group import *
 from file_writter import *
 
+
 def prepare_cluster_and_test_proxy(ec2_resource, ec2_client, instance_ami, key_pair, security_group_id):
+    """
+    This function prepares the mysql cluster including the master node and the three dat nodes.
+    It does the benchmarking of the cluster using sysbench against the master node.
+    The cluster is then used to test our proxy pattern. The proxy pattern is implemented on a different instance
+    of type t2.large. After the test of the proxy pattern, the different instances are deleted.
+    Note: Some files or entire folders are copied from local machine to AWS instance with SFTP. This is secure
+    especially as we will need to copy over the key created up to the proxy instance in order to latter be used by
+    the proxy pattern. Some files are also written into files like the different IPs of the cluster machines. The
+    proxy pattern will later use this information in order to establish mysql connections.
+    @param ec2_resource: The ec2_resource coming from the main function. It is used to get resources.
+    @param ec2_client: The ec2_client.
+    @param instance_ami: The ami describing the ubuntu 22.04 image in AWS
+    @param key_pair: The key pair created earlier in the main function
+    @param security_group_id: The security group created earlier in the main function
+    """
     cluster_instances_tag = "cluster_instances"
-    cluster_instances=None
+    cluster_instances = None
     proxy_instance = None
     try:
         sn_all = ec2_client.describe_subnets()
@@ -17,11 +33,11 @@ def prepare_cluster_and_test_proxy(ec2_resource, ec2_client, instance_ami, key_p
                 subnet = sn['SubnetId']
         proxy_tag = "proxy_server"
         create_instances(ec2_resource, instance_ami, "t2.micro",
-                                    key_pair["KeyName"], cluster_instances_tag,
-                                     4, security_group_id, subnet)[0]
+                         key_pair["KeyName"], cluster_instances_tag,
+                         4, security_group_id, subnet)[0]
         create_instances(ec2_resource, instance_ami, "t2.large",
-                                    key_pair["KeyName"], proxy_tag,
-                                     1, security_group_id, subnet)[0]
+                         key_pair["KeyName"], proxy_tag,
+                         1, security_group_id, subnet)[0]
         awake = False
         while awake is False:
             cluster_instances = ec2_resource.instances.filter(
@@ -41,14 +57,14 @@ def prepare_cluster_and_test_proxy(ec2_resource, ec2_client, instance_ami, key_p
 
         print(public_ips)
         write_config_ini_file_content(private_dns_1=private_dns[0],
-            private_dns_2=private_ips[1],
-            private_dns_3=private_ips[2],
-            private_dns_4=private_ips[3])
+                                      private_dns_2=private_ips[1],
+                                      private_dns_3=private_ips[2],
+                                      private_dns_4=private_ips[3])
 
         write_config_proxy_file_content(private_dns_master=private_dns[0],
-            private_ip_array=private_ips, private_key=key_pair["KeyMaterial"])
+                                        private_ip_array=private_ips, private_key=key_pair["KeyMaterial"])
 
-        #write_sqld_config_file(private_ips)
+        # write_sqld_config_file(private_ips)
 
         mngmt_node_coomands = [
             "sudo apt-get update && sudo apt-get install git -y",
@@ -71,9 +87,12 @@ def prepare_cluster_and_test_proxy(ec2_resource, ec2_client, instance_ami, key_p
             "sudo /opt/mysqlcluster/home/mysqlc/bin/mysql -e \"GRANT ALL PRIVILEGES ON sakila.* TO \'sbtest\'@\'%\'\"",
             "sudo /opt/mysqlcluster/home/mysqlc/bin/mysql -e \"FLUSH PRIVILEGES\"",
             "sudo /opt/mysqlcluster/home/mysqlc/bin/mysql -e \"GRANT ALL PRIVILEGES ON dbtest.* TO \'sbtest\'@\'%\'\"",
-            "sudo sysbench --test=oltp_read_write --tables=23 --mysql-db=sakila --mysql-host={0} --mysql-user=sbtest --mysql-password=passw0rd --table_size=10000 prepare".format(private_dns[0]),
-            "sudo sysbench --test=oltp_read_write --threads=6 --max-time=300 --tables=23 --mysql-db=sakila --mysql-host={0} --mysql-user=sbtest --mysql-password=passw0rd --table_size=10000 run > benchmark_cluster.txt".format(private_dns[0]),
-            "sudo sysbench --test=oltp_read_write --tables=23 --mysql-db=sakila --mysql-host={0} --mysql-user=sbtest --mysql-password=passw0rd --table_size=10000 cleanup".format(private_dns[0])
+            "sudo sysbench --test=oltp_read_write --tables=23 --mysql-db=sakila --mysql-host={0} --mysql-user=sbtest --mysql-password=passw0rd --table_size=10000 prepare".format(
+                private_dns[0]),
+            "sudo sysbench --test=oltp_read_write --threads=6 --max-time=300 --tables=23 --mysql-db=sakila --mysql-host={0} --mysql-user=sbtest --mysql-password=passw0rd --table_size=10000 run > benchmark_cluster.txt".format(
+                private_dns[0]),
+            "sudo sysbench --test=oltp_read_write --tables=23 --mysql-db=sakila --mysql-host={0} --mysql-user=sbtest --mysql-password=passw0rd --table_size=10000 cleanup".format(
+                private_dns[0])
 
         ]
 
@@ -85,14 +104,14 @@ def prepare_cluster_and_test_proxy(ec2_resource, ec2_client, instance_ami, key_p
         ]
         time.sleep(60)
         cluster_folder = os.path.abspath('cluster')
-        #The mngmt node
+        # The mngmt node
 
         mngmt_node_files = [
             os.path.join(cluster_folder, "config.ini"),
             os.path.join(cluster_folder, "mngmt_node_script.sh"),
         ]
-        start_deployment(public_ips[0], mngmt_node_coomands,key_pair["KeyMaterial"], 
-                    mngmt_node_files)
+        start_deployment(public_ips[0], mngmt_node_coomands, key_pair["KeyMaterial"],
+                         mngmt_node_files)
 
         print("Done mgmt node deployment")
         time.sleep(60)
@@ -100,7 +119,7 @@ def prepare_cluster_and_test_proxy(ec2_resource, ec2_client, instance_ami, key_p
             os.path.join(cluster_folder, "slave_mysql_script.sh")
         ]
 
-        #The replicas
+        # The replicas
         replicas_threads = []
 
         for i in range(1, 4):
@@ -108,36 +127,37 @@ def prepare_cluster_and_test_proxy(ec2_resource, ec2_client, instance_ami, key_p
                 "chmod 777 slave_mysql_script.sh",
                 "./slave_mysql_script.sh",
                 "sudo /opt/mysqlcluster/home/mysqlc/bin/ndbd -c \"{0}:1186;bind-address={1}\"".
-                    format(private_dns[0], private_ips[i])
+                format(private_dns[0], private_ips[i])
             ]
             ip = public_ips[i]
             print("Deploying replica node {0}".format(ip))
-            thread = Thread(target=start_deployment, args=(ip, replicas_commands, key_pair["KeyMaterial"] ,replica_file))
+            thread = Thread(target=start_deployment,
+                            args=(ip, replicas_commands, key_pair["KeyMaterial"], replica_file))
             thread.start()
             replicas_threads.append(thread)
-    
+
         for thread in replicas_threads:
             thread.join()
 
         print("Done replica nodes deployment")
-        
-        start_deployment(public_ips[0], benchmarking_commands, key_pair["KeyMaterial"], 
-            fetch_file="benchmark_cluster.txt", is_recursive=False)
-    
+
+        start_deployment(public_ips[0], benchmarking_commands, key_pair["KeyMaterial"],
+                         fetch_file="benchmark_cluster.txt", is_recursive=False)
+
         proxy_instances_list = ec2_resource.instances.filter(
-                Filters=[
-                    {'Name': 'instance-state-name', 'Values': ['running']},
-                    {'Name': 'tag:Name', 'Values': [proxy_tag]}
-                ]
-            )
+            Filters=[
+                {'Name': 'instance-state-name', 'Values': ['running']},
+                {'Name': 'tag:Name', 'Values': [proxy_tag]}
+            ]
+        )
         for instance in proxy_instances_list.all():
             print("Found proxy")
             proxy_instance = instance
-        
+
         proxy_folder = [os.path.abspath("proxy")]
         print(proxy_instance.public_ip_address)
-        start_deployment(proxy_instance.public_ip_address, proxy_commands,key_pair["KeyMaterial"], 
-                    proxy_folder,fetch_file="test_proxy.txt",is_recursive=True)
+        start_deployment(proxy_instance.public_ip_address, proxy_commands, key_pair["KeyMaterial"],
+                         proxy_folder, fetch_file="test_proxy.txt", is_recursive=True)
     except Exception as e:
         print(e)
     finally:
@@ -152,7 +172,18 @@ def prepare_cluster_and_test_proxy(ec2_resource, ec2_client, instance_ami, key_p
             for instance in cluster_instances.all():
                 instance.wait_until_terminated()
 
+
 def test_standalone_mysql(ec2_resource, ec2_client, instance_ami, key_pair, security_group_id):
+    """
+        This function creates an instance of type t2.micro for the standalone implementation of the mysql database
+        It then installs the database and run the benchmak using sysbench. After that, the instance is deleted
+        successfully
+        @param ec2_resource: The ec2_resource coming from the main function. It is used to get resources
+        @param ec2_client: The ec2_client.
+        @param instance_ami: The ami describing the ubuntu 22.04 image in AWS
+        @param key_pair: The key pair created earlier in the main function
+        @param security_group_id: The security group created earlier in the main function
+        """
     standalone_tag = "standalone"
     standalone_instances = None
     try:
@@ -162,8 +193,8 @@ def test_standalone_mysql(ec2_resource, ec2_client, instance_ami, key_pair, secu
             if sn['AvailabilityZone'] == 'us-east-1a' or sn['AvailabilityZone'] == 'us-east-1b':
                 subnet = sn['SubnetId']
         create_instances(ec2_resource, instance_ami, "t2.micro",
-                                    key_pair["KeyName"], standalone_tag,
-                                     1, security_group_id, subnet)[0]
+                         key_pair["KeyName"], standalone_tag,
+                         1, security_group_id, subnet)[0]
         awake = False
         while awake is False:
             standalone_instances = ec2_resource.instances.filter(
@@ -178,7 +209,7 @@ def test_standalone_mysql(ec2_resource, ec2_client, instance_ami, key_pair, secu
                 time.sleep(0.5)
 
         public_ips = [instance.public_ip_address for instance in standalone_instances.all()]
-        
+
         print(public_ips)
 
         standalone_commands = [
@@ -188,14 +219,14 @@ def test_standalone_mysql(ec2_resource, ec2_client, instance_ami, key_pair, secu
 
         time.sleep(60)
         current_folder = os.path.curdir
-        #The mngmt node
+        # The mngmt node
 
         standalone_files = [
             os.path.join(current_folder, "standalone_mysql_script.sh")
         ]
 
-        start_deployment(public_ips[0], standalone_commands,key_pair["KeyMaterial"], 
-                    standalone_files,fetch_file="benchmark_standalone.txt")
+        start_deployment(public_ips[0], standalone_commands, key_pair["KeyMaterial"],
+                         standalone_files, fetch_file="benchmark_standalone.txt")
 
     except Exception as e:
         print(e)
@@ -206,9 +237,15 @@ def test_standalone_mysql(ec2_resource, ec2_client, instance_ami, key_pair, secu
 
             for instance in standalone_instances.all():
                 instance.wait_until_terminated()
-        
+
 
 def main():
+    """
+    The main function prepares the arguments that are used in common by the two previously declared functions
+    It then calls the other two functions. After that, it deletes the security group as well as the key created
+    for the run.
+    @return: nothing
+    """
     session = boto3.Session(profile_name='default')
     ec2_client = session.client('ec2')
     ec2_resource = session.resource('ec2')
@@ -222,7 +259,6 @@ def main():
     test_standalone_mysql(ec2_resource, ec2_client, instance_ami, key_pair, security_group_id)
     prepare_cluster_and_test_proxy(ec2_resource, ec2_client, instance_ami, key_pair, security_group_id)
 
-    
     ec2_client.delete_key_pair(KeyName="tp3Key")
     time.sleep(60)
     try:
@@ -230,5 +266,6 @@ def main():
     except:
         time.sleep(30)
         delete_security_group(ec2_client, security_group_id)
+
 
 main()

@@ -1,5 +1,7 @@
+# This script runs commands to test the functionality of the proxy script and its well behaving
+# The output of this file will be piped to a certain test_proxy.txt file
 source ~/venv/bin/activate
-cd proxy
+cd ~/proxy
 python main.py random_hit "SELECT * FROM actor" >> ~/test_proxy.txt 
 python main.py direct_hit "INSERT INTO actor VALUES (201,'SYLVESTER','Stalone','2006-02-15 04:34:33')" >> ~/test_proxy.txt
 python main.py customized_hit "SELECT * FROM actor" >> ~/test_proxy.txt
